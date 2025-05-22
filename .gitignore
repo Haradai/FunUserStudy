@@ -38,9 +38,3 @@ ENV/
 # OS
 .DS_Store
 Thumbs.db
-
-# Project specific
-static/GT/*
-static/SR/*
-!static/GT/.gitkeep
-!static/SR/.gitkeep 
