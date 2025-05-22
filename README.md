@@ -1,4 +1,11 @@
-# Image Comparison Study Web Application
+# Need to annotate data? Your friends won't help much because seems boring? 🤔
+Say no more to "yes I can help you" and getting 5 images annotated per friend! 🎯 Give them a ranking to compete 🏆, a roulette to play with their points 🎲 and prizes! 🎁
+
+This project has been born from the necessity of having to annotate many images from my final thesis project. 📚
+It has been 99% LLM code generated so beware when using it. 🤖 
+I have tested it extensivelly but there might be bugs 🐛 and security flaws 🔒. Use at your own risk! ⚠️
+
+# How to use it :)
 
 A web application for conducting image comparison studies, built with Flask and Tailwind CSS. The application allows users to compare pairs of images and indicate whether there are semantic differences between them.
 
@@ -42,7 +49,7 @@ pip install -r requirements.txt
 
 4. Set up the database:
 ```bash
-python init_db.py
+python app.py
 ```
 
 5. Configure the application:
