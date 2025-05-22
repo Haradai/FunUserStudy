@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>User Study - Start</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <div class="container mx-auto px-4 py-8">
+        <div class="max-w-4xl mx-auto">
+            <!-- Progress Section -->
+            <div class="bg-white p-6 rounded-lg shadow-md mb-8">
+                <h2 class="text-xl font-bold mb-4">Study Progress</h2>
+                <div class="space-y-3">
+                    <div class="mt-1">
+                        <div class="flex justify-between items-center mb-1">
+                            <p class="text-xs">Completed: <span class="font-bold">{{ total_responses }}/{{ total_possible_responses }}</span></p>
+                            <p class="text-xs text-gray-500">{{ completion_percent|round(1) }}% Complete</p>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-1.5">
+                            {% set width = completion_percent|round(1) %}
+                            <div class="bg-blue-600 h-1.5 rounded-full" style="width: {{ width }}%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Login Form -->
+            <div class="bg-white p-6 rounded-lg shadow-md mb-8">
+                <h1 class="text-2xl font-bold text-center mb-6">Image Comparison Study</h1>
+                <p class="text-sm text-gray-600 mb-4 text-center">
+                    You'll be shown image pairs and asked if they have semantic differences.<br>
+                    Use arrow keys (← for No, → for Yes) or click the buttons.
+                </p>
+                {% if error %}
+                <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+                    {{ error }}
+                </div>
+                {% endif %}
+
+                {% if logged_in %}
+                <div class="mb-6 text-center">
+                    <p class="text-gray-600 mb-2">Currently logged in as:</p>
+                    <p class="text-lg font-semibold text-blue-600">{{ current_username }}</p>
+                    <div class="mt-4 flex gap-2 justify-center">
+                        <a href="{{ url_for('compare') }}" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
+                            Continue as {{ current_username }}
+                        </a>
+                        <a href="{{ url_for('logout') }}" class="bg-gray-500 text-white px-4 py-2 rounded hover:bg-gray-600">
+                            Logout
+                        </a>
+                    </div>
+                    <div class="mt-4">
+                        <p class="text-gray-500 text-sm">Or login with a different account:</p>
+                    </div>
+                </div>
+                {% endif %}
+                
+                <form method="POST" action="{{ url_for('index') }}">
+                    <div class="max-w-md mx-auto bg-white rounded-lg shadow-md p-6">
+                        <h2 class="text-2xl font-bold mb-6 text-center">Login</h2>
+                        
+                        <div class="mb-4">
+                            <label for="username" class="block text-sm font-medium text-gray-700 mb-2">
+                                Username:
+                            </label>
+                            <input type="text" id="username" name="username" 
+                                   class="w-full px-4 py-3 text-base border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                                   required>
+                        </div>
+                        <div class="mb-4">
+                            <label for="email" class="block text-sm font-medium text-gray-700 mb-2">
+                                Email:
+                            </label>
+                            <input type="email" id="email" name="email" 
+                                   class="w-full px-4 py-3 text-base border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                                   required>
+                        </div>
+                        <button type="submit" 
+                                class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                            Start Study
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Leaderboard -->
+            {% if top_users %}
+            <div class="bg-white p-6 rounded-lg shadow-md">
+                <h2 class="text-xl font-bold mb-4">🏆 Top Users Leaderboard</h2>
+                <div class="space-y-3">
+                    {% for user in top_users %}
+                    <div class="flex items-center p-3 rounded-lg {% if loop.index == 1 %}bg-yellow-50 border-2 border-yellow-200{% elif loop.index == 2 %}bg-gray-50 border-2 border-gray-200{% elif loop.index == 3 %}bg-orange-50 border-2 border-orange-200{% else %}bg-white border border-gray-100{% endif %} hover:shadow-md transition-shadow duration-200">
+                        <div class="flex-shrink-0 w-24 h-24 mr-6 relative">
+                            <img src="{{ url_for('serve_icon', filename=loop.index|string + '.png') }}" 
+                                 alt="User rank {{ loop.index }}" 
+                                 class="w-full h-full object-cover rounded-full border-4 {% if loop.index == 1 %}border-yellow-400{% elif loop.index == 2 %}border-gray-400{% elif loop.index == 3 %}border-orange-400{% else %}border-gray-200{% endif %}">
+                            <div class="absolute -top-3 -right-3 w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold {% if loop.index == 1 %}bg-yellow-400 text-white{% elif loop.index == 2 %}bg-gray-400 text-white{% elif loop.index == 3 %}bg-orange-400 text-white{% else %}bg-blue-400 text-white{% endif %}">
+                                {{ loop.index }}
+                            </div>
+                        </div>
+                        <div class="flex-grow">
+                            <div class="flex justify-between items-center">
+                                <div>
+                                    <h3 class="text-xl font-semibold text-gray-800">{{ user[0] }}</h3>
+                                    <p class="text-sm text-gray-500">Last active: {{ user[2] }}</p>
+                                    {% if loop.index <= prices|length %}
+                                    <div class="mt-3 text-2xl font-bold {% if loop.index == 1 %}text-yellow-600{% elif loop.index == 2 %}text-gray-600{% elif loop.index == 3 %}text-orange-600{% else %}text-blue-600{% endif %}">
+                                        🎁 Prize: {{ prices[loop.index - 1] }}
+                                    </div>
+                                    {% endif %}
+                                </div>
+                                <div class="text-right">
+                                    <div class="text-3xl font-bold {% if loop.index == 1 %}text-yellow-600{% elif loop.index == 2 %}text-gray-600{% elif loop.index == 3 %}text-orange-600{% else %}text-blue-600{% endif %}">
+                                        {{ user[1] }}
+                                    </div>
+                                    <div class="text-sm text-gray-500">points</div>
+                                </div>
+                            </div>
+                            <div class="mt-3 w-full bg-gray-200 rounded-full h-3">
+                                <div class="h-3 rounded-full {% if loop.index == 1 %}bg-yellow-400{% elif loop.index == 2 %}bg-gray-400{% elif loop.index == 3 %}bg-orange-400{% else %}bg-blue-400{% endif %}" 
+                                     style="width: {{ (user[1] / top_users[0][1] * 100)|round }}%">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</body>
+</html>

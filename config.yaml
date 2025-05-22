@@ -1,0 +1,13 @@
+dashboard:
+  password: "admin123"
+  
+study:
+  max_responses_per_pair: 15
+  reservation_timeout_minutes: 5
+  comparison_question: "Is there a semantic change between the two images?"
+
+prices:
+  - 👨‍🍳👨‍🍳 Et faig un pastis de formatge amb lotus 🍰🍰 I will make a lotus cheesecake for you 🍰🍰
+  - 🍺🍺 Et regalo les meves 3 cerveses preferides 🍺🍺 I will give you my 3 favorite beers 🍺🍺
+  - 👨‍🍳👨‍🍳 Et cuino el millor sandwich que pots dinar a la uni 🍔🍔 I will make the best sandwich you can eat at uni 🍔🍔
+

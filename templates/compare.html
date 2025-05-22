@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Image Comparison</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/hammer.js/2.0.8/hammer.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Desktop Styles */
+        @media (min-width: 641px) {
+            html, body {
+                height: 100%;
+                overflow: hidden;
+                position: fixed;
+                width: 100%;
+                touch-action: none;
+            }
+            .content-container {
+                height: calc(100vh - 80px - 200px);
+                overflow: hidden;
+                position: absolute;
+                width: 100%;
+                top: 80px;
+                left: 0;
+                -webkit-overflow-scrolling: touch;
+            }
+            .image-container {
+                display: flex;
+                flex-direction: row;
+                gap: 1rem;
+                height: 100%;
+                padding: 1rem;
+            }
+            .image-wrapper {
+                flex: 1 1 50%;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                height: 100%;
+                min-height: 0;
+            }
+            .image-wrapper img {
+                max-height: 100%;
+                max-width: 100%;
+                object-fit: contain;
+                width: auto;
+                height: auto;
+            }
+            .swipe-area {
+                touch-action: none;
+                padding: 1rem;
+            }
+            .fixed-progress {
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                z-index: 50;
+                background: white;
+                border-bottom: 1px solid #e5e7eb;
+                height: 80px;
+            }
+            .fixed-leaderboard {
+                position: fixed;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                z-index: 50;
+                background: white;
+                border-top: 1px solid #e5e7eb;
+                height: 200px;
+                overflow-y: auto;
+            }
+        }
+
+        /* Mobile Styles */
+        @media (max-width: 640px) {
+            html, body {
+                height: 100vh;
+                width: 100vw;
+                overflow: hidden;
+                position: fixed;
+                touch-action: none;
+            }
+
+            /* Force landscape */
+            @media screen and (orientation: portrait) {
+                html {
+                    transform: rotate(-90deg);
+                    transform-origin: left top;
+                    width: 100vh;
+                    height: 100vw;
+                    position: absolute;
+                    top: 100%;
+                    left: 0;
+                }
+            }
+
+            .mobile-container {
+                display: flex;
+                flex-direction: column;
+                height: 100vh;
+                width: 100vw;
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+            }
+
+            .mobile-progress {
+                height: 40px;
+                background: white;
+                border-bottom: 1px solid #e5e7eb;
+                padding: 0.25rem;
+                flex-shrink: 0;
+                position: relative;
+                z-index: 10;
+            }
+
+            .mobile-content {
+                flex: 1;
+                display: flex;
+                flex-direction: row;
+                min-height: 0;
+                position: relative;
+                overflow: hidden;
+            }
+
+            .mobile-sidebar {
+                width: 80px;
+                background: white;
+                border-right: 1px solid #e5e7eb;
+                overflow-y: auto;
+                display: flex;
+                flex-direction: column;
+                padding: 0.25rem;
+                flex-shrink: 0;
+                position: relative;
+                z-index: 5;
+            }
+
+            .mobile-sidebar-right {
+                border-right: none;
+                border-left: 1px solid #e5e7eb;
+            }
+
+            .mobile-main {
+                flex: 1;
+                display: flex;
+                flex-direction: column;
+                min-height: 0;
+                position: relative;
+                overflow: hidden;
+            }
+
+            .mobile-images {
+                flex: 1;
+                display: flex;
+                flex-direction: row;
+                gap: 0.5rem;
+                padding: 0.5rem;
+                min-height: 0;
+                overflow: hidden;
+            }
+
+            .mobile-image-wrapper {
+                flex: 1;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                min-height: 0;
+                overflow: hidden;
+            }
+
+            .mobile-image-wrapper img {
+                max-height: 100%;
+                max-width: 100%;
+                object-fit: contain;
+                width: auto;
+                height: auto;
+            }
+
+            .mobile-controls {
+                position: absolute;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                background: rgba(255, 255, 255, 0.9);
+                padding: 0.5rem;
+                border-top: 1px solid #e5e7eb;
+                z-index: 5;
+            }
+
+            /* Prevent text selection */
+            .mobile-user-card,
+            .mobile-roulette,
+            .mobile-controls button {
+                user-select: none;
+                -webkit-user-select: none;
+            }
+
+            /* Ensure proper touch handling */
+            .mobile-sidebar,
+            .mobile-main,
+            .mobile-images {
+                touch-action: pan-y;
+            }
+
+            /* Prevent overscroll */
+            .mobile-sidebar {
+                overscroll-behavior: contain;
+            }
+
+            .mobile-user-card {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                padding: 0.25rem;
+                background: white;
+                border: 1px solid #e5e7eb;
+                border-radius: 0.25rem;
+                margin-bottom: 0.25rem;
+            }
+
+            .mobile-roulette {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                padding: 0.25rem;
+                background: white;
+                border: 1px solid #e5e7eb;
+                border-radius: 0.25rem;
+                margin-bottom: 0.25rem;
+            }
+
+            .mobile-roulette-wheel {
+                width: 2rem;
+                height: 2rem;
+                border: 1px solid #3b82f6;
+                border-radius: 50%;
+                position: relative;
+                margin-bottom: 0.25rem;
+            }
+
+            .mobile-roulette-arrow {
+                position: absolute;
+                top: 0;
+                left: 50%;
+                transform: translateX(-50%);
+                width: 0;
+                height: 0;
+                border-left: 3px solid transparent;
+                border-right: 3px solid transparent;
+                border-bottom: 6px solid #ef4444;
+            }
+
+            .mobile-user-rank {
+                width: 1.5rem;
+                height: 1.5rem;
+                position: relative;
+                margin-bottom: 0.25rem;
+            }
+
+            .mobile-user-score {
+                font-size: 0.6rem;
+                font-weight: bold;
+                text-align: center;
+            }
+
+            .mobile-user-name {
+                font-size: 0.5rem;
+                text-align: center;
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                max-width: 100%;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <!-- Desktop Layout -->
+    <div class="hidden md:block">
+        <!-- Fixed Progress Bar -->
+        <div class="fixed-progress">
+            <div class="container mx-auto px-4 py-2">
+                <div class="flex justify-between items-center">
+                    <div class="flex items-center gap-4">
+                        <h1 class="text-xl font-bold">Image Comparison</h1>
+                        <div class="text-sm text-gray-600">
+                            User: <span class="font-semibold text-blue-600">{{ session.get('username', '') }}</span>
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-base font-semibold">Score: <span id="user-score" class="text-blue-600">{{ session.get('user_score', 0) }}</span></p>
+                        <p class="text-sm text-gray-600">Annotations: <span class="font-semibold">{{ annotation_count }}/{{ total_pairs }}</span></p>
+                    </div>
+                </div>
+                <div class="mt-1">
+                    <div class="flex justify-between items-center mb-1">
+                        <p class="text-xs">Completed: <span class="font-bold">{{ total_responses }}/{{ total_possible_responses }}</span></p>
+                        <p class="text-xs text-gray-500">{{ completion_percent|round(1) }}% Complete</p>
+                    </div>
+                    <div class="w-full bg-gray-200 rounded-full h-1.5">
+                        {% set width = completion_percent|round(1) %}
+                        <div class="bg-blue-600 h-1.5 rounded-full" style="width: {{ width }}%"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="content-container">
+            <div class="container mx-auto px-4 h-full">
+                <div class="bg-white p-4 rounded-lg shadow-md h-full flex flex-col">
+                    <div class="image-container flex-grow">
+                        <div class="image-wrapper">
+                            <div class="flex justify-center items-center flex-grow">
+                                <img src="/{{ gt_path }}" alt="Ground Truth image" 
+                                     class="max-w-full h-auto rounded border border-gray-200">
+                            </div>
+                        </div>
+                        <div class="image-wrapper">
+                            <div class="flex justify-center items-center flex-grow">
+                                <img src="/{{ sr_path }}" alt="Synthesized image" 
+                                     class="max-w-full h-auto rounded border border-gray-200">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="text-center mt-2 swipe-area" id="compareContainer">
+                        <p class="text-base font-medium mb-1">{{ config['study']['comparison_question'] }}</p>
+                        <p class="text-xs text-gray-500 mb-2">
+                            Press Left Arrow (←) for No, Right Arrow (→) for Yes<br>
+                            <span class="inline-block md:hidden">Or swipe left for No, right for Yes</span>
+                        </p>
+                        <form method="POST" action="/submit" class="flex gap-4 justify-center" id="responseForm">
+                            <input type="hidden" name="image_id" value="{{ image_id }}">
+                            <button type="submit" name="answer" value="No" id="leftButton"
+                                    class="px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 text-base font-medium">
+                                ← No
+                            </button>
+                            <button type="submit" name="answer" value="Yes" id="rightButton"
+                                    class="px-6 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-500 text-base font-medium">
+                                Yes →
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Fixed Leaderboard -->
+        {% if top_users %}
+        <div class="fixed-leaderboard">
+            <div class="container mx-auto px-4 py-2">
+                <div class="flex justify-between">
+                    <!-- Top Users Section -->
+                    <div class="w-2/3">
+                        <h2 class="text-base font-bold mb-2">🏆 Top Users</h2>
+                        <div class="space-y-2">
+                            {% for user in top_users %}
+                            <div class="flex items-center p-2 rounded-lg {% if loop.index == 1 %}bg-yellow-50 border border-yellow-200{% elif loop.index == 2 %}bg-gray-50 border border-gray-200{% elif loop.index == 3 %}bg-orange-50 border border-orange-200{% else %}bg-white border border-gray-100{% endif %}">
+                                <div class="flex-shrink-0 w-12 h-12 mr-3 relative">
+                                    <img src="{{ url_for('serve_icon', filename=loop.index|string + '.png') }}" 
+                                         alt="User rank {{ loop.index }}" 
+                                         class="w-full h-full object-cover rounded-full border-2 {% if loop.index == 1 %}border-yellow-400{% elif loop.index == 2 %}border-gray-400{% elif loop.index == 3 %}border-orange-400{% else %}border-gray-200{% endif %}">
+                                    <div class="absolute -top-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold {% if loop.index == 1 %}bg-yellow-400 text-white{% elif loop.index == 2 %}bg-gray-400 text-white{% elif loop.index == 3 %}bg-orange-400 text-white{% else %}bg-blue-400 text-white{% endif %}">
+                                        {{ loop.index }}
+                                    </div>
+                                </div>
+                                <div class="flex-grow">
+                                    <div class="flex justify-between items-center">
+                                        <div>
+                                            <h3 class="text-sm font-semibold text-gray-800">{{ user[0] }}</h3>
+                                            {% if loop.index <= prices|length %}
+                                            <div class="text-sm font-bold {% if loop.index == 1 %}text-yellow-600{% elif loop.index == 2 %}text-gray-600{% elif loop.index == 3 %}text-orange-600{% else %}text-blue-600{% endif %}">
+                                                🎁 {{ prices[loop.index - 1] }}
+                                            </div>
+                                            {% endif %}
+                                        </div>
+                                        <div class="text-right">
+                                            <div class="text-lg font-bold {% if loop.index == 1 %}text-yellow-600{% elif loop.index == 2 %}text-gray-600{% elif loop.index == 3 %}text-orange-600{% else %}text-blue-600{% endif %}">
+                                                {{ user[1] }}
+                                            </div>
+                                            <div class="text-xs text-gray-500">points</div>
+                                        </div>
+                                    </div>
+                                    <div class="mt-1 w-full bg-gray-200 rounded-full h-1.5">
+                                        <div class="h-1.5 rounded-full {% if loop.index == 1 %}bg-yellow-400{% elif loop.index == 2 %}bg-gray-400{% elif loop.index == 3 %}bg-orange-400{% else %}bg-blue-400{% endif %}" 
+                                             style="width: {{ (user[1] / top_users[0][1] * 100)|round }}%">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <!-- Gambling Section -->
+                    <div class="w-1/3 pl-4 border-l border-gray-200">
+                        <h2 class="text-base font-bold mb-2">🎲 Lucky Spin</h2>
+                        <div class="bg-white rounded-lg p-4 shadow-sm">
+                            <div class="flex items-center gap-4">
+                                <div class="relative w-24 h-24">
+                                    <div id="roulette" class="w-full h-full rounded-full border-4 border-blue-500 relative overflow-hidden">
+                                        <div class="absolute inset-0 bg-gradient-to-r from-red-500 via-yellow-500 to-green-500 opacity-50"></div>
+                                        <div id="roulette-arrow" class="absolute top-0 left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-[8px] border-r-[8px] border-b-[16px] border-transparent border-b-red-500"></div>
+                                    </div>
+                                </div>
+                                <div class="flex-1">
+                                    <button id="spin-button" 
+                                            class="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-full transition-colors duration-200 mb-2 {% if annotation_count % 10 != 0 %}opacity-50 cursor-not-allowed{% endif %}"
+                                            {% if annotation_count % 10 != 0 %}disabled{% endif %}>
+                                        {% if annotation_count % 10 != 0 %}
+                                            Available in {{ 10 - (annotation_count % 10) }} annotations
+                                        {% else %}
+                                            Spin for Points!
+                                        {% endif %}
+                                    </button>
+                                    <div id="spin-result" class="text-sm font-semibold text-center"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Mobile Layout -->
+    <div class="md:hidden mobile-container">
+        <!-- Progress Bar -->
+        <div class="mobile-progress">
+            <div class="flex justify-between items-center">
+                <div class="flex items-center gap-2">
+                    <h1 class="text-sm font-bold">Image Comparison</h1>
+                    <div class="text-xs text-gray-600">
+                        User: <span class="font-semibold text-blue-600">{{ session.get('username', '') }}</span>
+                    </div>
+                </div>
+                <div class="text-right">
+                    <p class="text-xs font-semibold">Score: <span id="user-score" class="text-blue-600">{{ session.get('user_score', 0) }}</span></p>
+                    <p class="text-xs text-gray-600">Annotations: <span class="font-semibold">{{ annotation_count }}/{{ total_pairs }}</span></p>
+                </div>
+            </div>
+            <div class="mt-1">
+                <div class="flex justify-between items-center">
+                    <p class="text-xs">Completed: <span class="font-bold">{{ total_responses }}/{{ total_possible_responses }}</span></p>
+                    <p class="text-xs text-gray-500">{{ completion_percent|round(1) }}% Complete</p>
+                </div>
+                <div class="w-full bg-gray-200 rounded-full h-1">
+                    <div class="bg-blue-600 h-1 rounded-full" style="width: {{ completion_percent|round(1) }}%"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="mobile-content">
+            <!-- Left Sidebar - Top Users -->
+            <div class="mobile-sidebar">
+                {% if top_users %}
+                    {% for user in top_users %}
+                    <div class="mobile-user-card">
+                        <div class="mobile-user-rank">
+                            <img src="{{ url_for('serve_icon', filename=loop.index|string + '.png') }}" 
+                                 alt="User rank {{ loop.index }}" 
+                                 class="w-full h-full object-cover rounded-full border-2 {% if loop.index == 1 %}border-yellow-400{% elif loop.index == 2 %}border-gray-400{% elif loop.index == 3 %}border-orange-400{% else %}border-gray-200{% endif %}">
+                            <div class="absolute -top-1 -right-1 w-3 h-3 rounded-full flex items-center justify-center text-[8px] font-bold {% if loop.index == 1 %}bg-yellow-400 text-white{% elif loop.index == 2 %}bg-gray-400 text-white{% elif loop.index == 3 %}bg-orange-400 text-white{% else %}bg-blue-400 text-white{% endif %}">
+                                {{ loop.index }}
+                            </div>
+                        </div>
+                        <div class="mobile-user-name">{{ user[0] }}</div>
+                        <div class="mobile-user-score {% if loop.index == 1 %}text-yellow-600{% elif loop.index == 2 %}text-gray-600{% elif loop.index == 3 %}text-orange-600{% else %}text-blue-600{% endif %}">
+                            {{ user[1] }}
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% endif %}
+            </div>
+
+            <!-- Main Image Comparison Area -->
+            <div class="mobile-main">
+                <div class="mobile-images">
+                    <div class="mobile-image-wrapper">
+                        <div class="flex justify-center items-center flex-grow">
+                            <img src="/{{ gt_path }}" alt="Ground Truth image" class="rounded border border-gray-200">
+                        </div>
+                    </div>
+                    <div class="mobile-image-wrapper">
+                        <div class="flex justify-center items-center flex-grow">
+                            <img src="/{{ sr_path }}" alt="Synthesized image" class="rounded border border-gray-200">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Controls -->
+                <div class="mobile-controls">
+                    <p class="text-xs font-medium mb-1">{{ config['study']['comparison_question'] }}</p>
+                    <p class="text-xs text-gray-500 mb-2">Swipe left for No, right for Yes</p>
+                    <form method="POST" action="/submit" class="flex gap-2 justify-center" id="responseForm">
+                        <input type="hidden" name="image_id" value="{{ image_id }}">
+                        <button type="submit" name="answer" value="No" id="leftButton"
+                                class="px-4 py-1 bg-blue-500 text-white rounded-lg hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 text-xs font-medium">
+                            ← No
+                        </button>
+                        <button type="submit" name="answer" value="Yes" id="rightButton"
+                                class="px-4 py-1 bg-green-500 text-white rounded-lg hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-500 text-xs font-medium">
+                            Yes →
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Right Sidebar - Roulette -->
+            <div class="mobile-sidebar mobile-sidebar-right">
+                {% if top_users %}
+                    <div class="mobile-roulette">
+                        <div class="mobile-roulette-wheel">
+                            <div id="roulette" class="w-full h-full rounded-full relative overflow-hidden">
+                                <div class="absolute inset-0 bg-gradient-to-r from-red-500 via-yellow-500 to-green-500 opacity-50"></div>
+                                <div id="roulette-arrow" class="absolute top-0 left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-[3px] border-r-[3px] border-b-[6px] border-transparent border-b-red-500"></div>
+                            </div>
+                        </div>
+                        <button id="spin-button" 
+                                class="text-[10px] bg-blue-500 hover:bg-blue-600 text-white font-bold py-1 px-2 rounded-full transition-colors duration-200 {% if annotation_count % 10 != 0 %}opacity-50 cursor-not-allowed{% endif %}"
+                                {% if annotation_count % 10 != 0 %}disabled{% endif %}>
+                            {% if annotation_count % 10 != 0 %}
+                                {{ 10 - (annotation_count % 10) }} more
+                            {% else %}
+                                Spin!
+                            {% endif %}
+                        </button>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Prevent default touch behavior
+        document.addEventListener('touchmove', function(e) {
+            e.preventDefault();
+        }, { passive: false });
+        
+        // Keyboard controls
+        document.addEventListener('keydown', function(event) {
+            if (event.key === 'ArrowLeft') {
+                document.getElementById('leftButton').click();
+            } else if (event.key === 'ArrowRight') {
+                document.getElementById('rightButton').click();
+            }
+        });
+        
+        // Touch swipe controls for mobile
+        document.addEventListener('DOMContentLoaded', function() {
+            const container = document.getElementById('compareContainer');
+            const hammer = new Hammer(container);
+            
+            // Enable horizontal directions for the recognizer
+            hammer.get('swipe').set({ direction: Hammer.DIRECTION_HORIZONTAL });
+            
+            hammer.on('swipeleft', function(e) {
+                document.getElementById('leftButton').click();
+            });
+            
+            hammer.on('swiperight', function(e) {
+                document.getElementById('rightButton').click();
+            });
+            
+            // Visual feedback for swipe
+            let startX;
+            container.addEventListener('touchstart', function(e) {
+                startX = e.touches[0].clientX;
+            });
+            
+            container.addEventListener('touchmove', function(e) {
+                if (!startX) return;
+                
+                const currentX = e.touches[0].clientX;
+                const diffX = currentX - startX;
+                
+                // Add slight visual feedback during swipe
+                if (Math.abs(diffX) > 30) {
+                    if (diffX > 0) {
+                        document.getElementById('rightButton').classList.add('ring-2');
+                        document.getElementById('leftButton').classList.remove('ring-2');
+                    } else {
+                        document.getElementById('leftButton').classList.add('ring-2');
+                        document.getElementById('rightButton').classList.remove('ring-2');
+                    }
+                }
+            });
+            
+            container.addEventListener('touchend', function() {
+                document.getElementById('leftButton').classList.remove('ring-2');
+                document.getElementById('rightButton').classList.remove('ring-2');
+                startX = null;
+            });
+        });
+
+        // Add gambling functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            const spinButton = document.getElementById('spin-button');
+            const roulette = document.getElementById('roulette');
+            const resultDiv = document.getElementById('spin-result');
+            let isSpinning = false;
+
+            const prizes = [
+                { text: '+10 Points! 🎉', color: 'bg-green-500', points: 10 },
+                { text: 'x2 Points Next! ⚡', color: 'bg-yellow-500', multiplier: 2 },
+                { text: '-10 Points 😢', color: 'bg-red-500', points: -10 },
+                { text: '-1 Point 😴', color: 'bg-purple-500', points: -1 }
+            ];
+
+            spinButton.addEventListener('click', async function() {
+                if (isSpinning) return;
+                const annotationCount = parseInt(document.querySelector('.text-right .text-gray-600 .font-semibold').textContent.split('/')[0]);
+                if (annotationCount % 10 !== 0) return;
+                
+                isSpinning = true;
+                spinButton.disabled = true;
+                resultDiv.textContent = '';
+
+                // Random number of full rotations (3-5) plus the prize position
+                const rotations = 3 + Math.floor(Math.random() * 3);
+                const prizeIndex = Math.floor(Math.random() * prizes.length);
+                const totalDegrees = (rotations * 360) + (prizeIndex * 90);
+
+                // Animate the spin
+                roulette.style.transition = 'transform 3s cubic-bezier(0.2, 0.8, 0.2, 1)';
+                roulette.style.transform = `rotate(${totalDegrees}deg)`;
+
+                // Wait for animation to complete
+                setTimeout(async () => {
+                    const prize = prizes[prizeIndex];
+                    resultDiv.textContent = prize.text;
+                    resultDiv.className = `mt-2 text-sm font-semibold ${prize.color} text-white px-3 py-1 rounded-full`;
+
+                    // Send result to server
+                    try {
+                        const response = await fetch('/gamble', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({
+                                prize: prize
+                            })
+                        });
+                        
+                        const data = await response.json();
+                        console.log('Server response:', data);
+                        
+                        if (response.ok && data.success) {
+                            // Update score display with server value to ensure sync
+                            const scoreElement = document.getElementById('user-score');
+                            if (scoreElement) {
+                                scoreElement.textContent = data.new_score;
+                                console.log('Updated score from server:', data.new_score);
+                            } else {
+                                console.error('Score element not found after server response');
+                            }
+                        } else {
+                            console.error('Server error:', data.error || 'Unknown error');
+                        }
+                    } catch (error) {
+                        console.error('Error during fetch:', error);
+                    }
+
+                    // Reset after 2 seconds
+                    setTimeout(() => {
+                        roulette.style.transition = 'none';
+                        roulette.style.transform = 'rotate(0deg)';
+                        setTimeout(() => {
+                            roulette.style.transition = 'transform 3s cubic-bezier(0.2, 0.8, 0.2, 1)';
+                            isSpinning = false;
+                            // Keep button disabled and update text
+                            spinButton.disabled = true;
+                            spinButton.classList.add('opacity-50', 'cursor-not-allowed');
+                            const nextMultiple = Math.ceil((annotationCount + 1) / 10) * 10;
+                            const remainingAnnotations = 10 - (annotationCount % 10);
+                            spinButton.textContent = `Available in ${remainingAnnotations} annotations`;
+                        }, 50);
+                    }, 2000);
+                }, 3000);
+            });
+        });
+    </script>
+</body>
+</html>
