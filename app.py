@@ -8,9 +8,53 @@ from werkzeug.utils import secure_filename
 from datetime import datetime, timedelta
 import random
 import re
+import time
 
 app = Flask(__name__, static_url_path='/static')
 app.secret_key = 'your_secret_key_here'  # Change this in production
+
+# Database retry configuration
+MAX_RETRIES = 5
+INITIAL_RETRY_DELAY = 0.1  # 100ms
+MAX_RETRY_DELAY = 2.0  # 2 seconds
+
+def execute_with_retry(conn, query, params=None, fetch=False):
+    """
+    Execute a database query with retry logic for handling database locks.
+    Returns the result if fetch=True, otherwise returns None.
+    """
+    retry_count = 0
+    last_error = None
+    
+    while retry_count < MAX_RETRIES:
+        try:
+            cursor = conn.cursor()
+            if params:
+                cursor.execute(query, params)
+            else:
+                cursor.execute(query)
+            
+            if fetch:
+                result = cursor.fetchall()
+                return result
+            return None
+            
+        except sqlite3.OperationalError as e:
+            if "database is locked" in str(e):
+                last_error = e
+                retry_count += 1
+                if retry_count < MAX_RETRIES:
+                    # Exponential backoff with jitter
+                    delay = min(INITIAL_RETRY_DELAY * (2 ** retry_count), MAX_RETRY_DELAY)
+                    jitter = random.uniform(0, 0.1 * delay)  # Add 10% jitter
+                    time.sleep(delay + jitter)
+                    continue
+            raise e
+        except Exception as e:
+            raise e
+    
+    if last_error:
+        raise last_error
 
 # Load config
 with open('config.yaml') as f:
@@ -155,6 +199,7 @@ def index():
         SELECT u.username, s.score, s.last_updated, u.email
         FROM user_scores s
         JOIN users u ON s.username = u.username
+        WHERE u.username != 'pepe'
         ORDER BY s.score DESC 
         LIMIT 10
     ''').fetchall()
@@ -187,16 +232,30 @@ def index():
         # Check if username exists
         c.execute('SELECT email FROM users WHERE username = ?', (username,))
         existing_user = c.fetchone()
+
+        # Check if email exists
+        c.execute('SELECT email FROM users WHERE email = ?', (email,))
+        existing_email = c.fetchone()
         
         if existing_user:
-            if existing_user['email'] != email:
-                return render_template('index.html', 
-                                     error="Username already taken or wrong email",
+            return render_template('index.html', 
+                                     error="Username already taken",
                                      total_responses=total_responses,
                                      total_possible_responses=total_possible_responses,
                                      completion_percent=completion_percent,
                                      top_users=top_users,
                                      prices=prices)
+        
+
+        elif existing_email:
+            return render_template('index.html', 
+                                     error="Email already used!",
+                                     total_responses=total_responses,
+                                     total_possible_responses=total_possible_responses,
+                                     completion_percent=completion_percent,
+                                     top_users=top_users,
+                                     prices=prices)
+        
         else:
             # Create new user
             try:
@@ -204,7 +263,7 @@ def index():
                 conn.commit()
             except sqlite3.IntegrityError:
                 return render_template('index.html', 
-                                     error="Username or email already exists",
+                                     error="Error saving user",
                                      total_responses=total_responses,
                                      total_possible_responses=total_possible_responses,
                                      completion_percent=completion_percent,
@@ -417,55 +476,73 @@ def compare():
     conn = sqlite3.connect('database.db')
     # Enable immediate transaction mode to prevent other transactions from modifying data
     conn.isolation_level = 'IMMEDIATE'
-    c = conn.cursor()
     
     try:
-        # Get user's annotation count
-        c.execute('''SELECT COUNT(*) FROM responses 
-                     WHERE username = ? AND answer != 'RESERVED' ''', 
-                  (session['username'],))
-        annotation_count = c.fetchone()[0]
+        # Get user's annotation count with retry
+        annotation_count = execute_with_retry(
+            conn,
+            '''SELECT COUNT(*) FROM responses 
+               WHERE username = ? AND answer != 'RESERVED' ''',
+            (session['username'],),
+            fetch=True
+        )[0][0]
         session['annotation_count'] = annotation_count
         
-        # Get completion statistics
-        c.execute('SELECT COUNT(*) FROM images WHERE answered_count = ?', 
-                  (config['study']['max_responses_per_pair'],))
-        completed_pairs = c.fetchone()[0]
+        # Get completion statistics with retry
+        completed_pairs = execute_with_retry(
+            conn,
+            'SELECT COUNT(*) FROM images WHERE answered_count = ?',
+            (config['study']['max_responses_per_pair'],),
+            fetch=True
+        )[0][0]
         
-        c.execute('SELECT COUNT(*) FROM images')
-        total_pairs = c.fetchone()[0]
+        total_pairs = execute_with_retry(
+            conn,
+            'SELECT COUNT(*) FROM images',
+            fetch=True
+        )[0][0]
         
         # Calculate total possible responses
         total_possible_responses = total_pairs * config['study']['max_responses_per_pair']
         
-        # Get total actual responses
-        c.execute('SELECT COUNT(*) FROM responses WHERE answer != "RESERVED"')
-        total_responses = c.fetchone()[0]
+        # Get total actual responses with retry
+        total_responses = execute_with_retry(
+            conn,
+            'SELECT COUNT(*) FROM responses WHERE answer != "RESERVED"',
+            fetch=True
+        )[0][0]
         
         completion_percent = (total_responses/total_possible_responses)*100 if total_possible_responses > 0 else 0
         
-        # Get top users
-        c.execute('''SELECT u.username, s.score, s.last_updated, u.email
-                     FROM user_scores s
-                     JOIN users u ON s.username = u.username
-                     ORDER BY s.score DESC 
-                     LIMIT 10''')
-        top_users = c.fetchall()
+        # Get top users with retry
+        top_users = execute_with_retry(
+            conn,
+            '''SELECT u.username, s.score, s.last_updated, u.email
+               FROM user_scores s
+               JOIN users u ON s.username = u.username
+               WHERE u.username != 'pepe'
+               ORDER BY s.score DESC 
+               LIMIT 10''',
+            fetch=True
+        )
         
         # Begin transaction
-        c.execute('BEGIN TRANSACTION')
+        execute_with_retry(conn, 'BEGIN TRANSACTION')
         
-        # Check if user has any existing reservation
-        c.execute('''SELECT i.id, i.gt_path, i.sr_path, r.timestamp
-                     FROM responses r
-                     JOIN images i ON r.image_id = i.id
-                     WHERE r.username = ? AND r.answer = 'RESERVED'
-                     LIMIT 1''', (session['username'],))
-        
-        existing_reservation = c.fetchone()
+        # Check if user has any existing reservation with retry
+        existing_reservation = execute_with_retry(
+            conn,
+            '''SELECT i.id, i.gt_path, i.sr_path, r.timestamp
+               FROM responses r
+               JOIN images i ON r.image_id = i.id
+               WHERE r.username = ? AND r.answer = 'RESERVED'
+               LIMIT 1''',
+            (session['username'],),
+            fetch=True
+        )
         
         if existing_reservation:
-            image_id, gt_path, sr_path, timestamp_str = existing_reservation
+            image_id, gt_path, sr_path, timestamp_str = existing_reservation[0]
             
             # Check if reservation is expired
             try:
@@ -479,7 +556,7 @@ def compare():
             
             if current_time > expiration_time:
                 # Reservation expired - clean it up
-                c.execute('''DELETE FROM responses 
+                execute_with_retry(conn, '''DELETE FROM responses 
                              WHERE username = ? AND image_id = ? AND answer = 'RESERVED' ''', 
                           (session['username'], image_id))
                 
@@ -528,7 +605,9 @@ def compare():
                                      config=config)
         
         # Find an image pair that needs answers and lock the row for update
-        c.execute('''SELECT i.id, i.gt_path, i.sr_path, i.answered_count 
+        image_data = execute_with_retry(
+            conn,
+            '''SELECT i.id, i.gt_path, i.sr_path, i.answered_count 
                      FROM images i
                      WHERE i.answered_count < ?
                      AND NOT EXISTS (
@@ -536,9 +615,10 @@ def compare():
                          WHERE r.image_id = i.id AND r.username = ?
                      )
                      ORDER BY RANDOM()
-                     LIMIT 1''', (config['study']['max_responses_per_pair'], session['username']))
-        
-        image_data = c.fetchone()
+                     LIMIT 1''',
+            (config['study']['max_responses_per_pair'], session['username']),
+            fetch=True
+        )
         
         if not image_data:
             # All images have been answered by this user or all pairs are complete
@@ -546,7 +626,7 @@ def compare():
             conn.close()
             return render_template('complete.html')
         
-        image_id, gt_path, sr_path, current_count = image_data
+        image_id, gt_path, sr_path, current_count = image_data[0]
         
         # Double-check the count is still below maximum before proceeding
         if current_count >= config['study']['max_responses_per_pair']:
@@ -558,7 +638,7 @@ def compare():
         try:
             # Create a temporary reservation record with current timestamp
             current_timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-            c.execute('''INSERT INTO responses (username, image_id, answer, timestamp)
+            execute_with_retry(conn, '''INSERT INTO responses (username, image_id, answer, timestamp)
                          VALUES (?, ?, 'RESERVED', ?)''', 
                       (session['username'], image_id, current_timestamp))
             
@@ -637,20 +717,24 @@ def gamble():
     
     try:
         # Begin transaction
-        c.execute('BEGIN TRANSACTION')
+        execute_with_retry(conn, 'BEGIN TRANSACTION')
         
         # Get current score
-        c.execute('SELECT score FROM user_scores WHERE username = ?', (session['username'],))
-        result = c.fetchone()
+        result = execute_with_retry(
+            conn,
+            'SELECT score FROM user_scores WHERE username = ?',
+            (session['username'],),
+            fetch=True
+        )
         print(f"Current score from database: {result}")
         
         if not result:
             # Create new score entry if doesn't exist
-            c.execute('INSERT INTO user_scores (username, score) VALUES (?, 0)', (session['username'],))
+            execute_with_retry(conn, 'INSERT INTO user_scores (username, score) VALUES (?, 0)', (session['username'],))
             current_score = 0
             print("Created new score entry")
         else:
-            current_score = result[0]
+            current_score = result[0][0]
         
         # Apply prize effect
         new_score = current_score
@@ -664,7 +748,7 @@ def gamble():
         
         # Update score if it changed
         if new_score != current_score:
-            c.execute('''UPDATE user_scores 
+            execute_with_retry(conn, '''UPDATE user_scores 
                          SET score = ?, last_updated = CURRENT_TIMESTAMP 
                          WHERE username = ?''', 
                       (new_score, session['username']))
@@ -718,22 +802,30 @@ def submit():
     
     try:
         # Begin transaction
-        c.execute('BEGIN TRANSACTION')
+        execute_with_retry(conn, 'BEGIN TRANSACTION')
         
         # Check if reservation exists
-        c.execute('''SELECT timestamp FROM responses 
-                     WHERE username = ? AND image_id = ? AND answer = 'RESERVED' ''', 
-                  (session['username'], image_id))
+        result = execute_with_retry(
+            conn,
+            '''SELECT timestamp FROM responses 
+                     WHERE username = ? AND image_id = ? AND answer = 'RESERVED' ''',
+            (session['username'], image_id),
+            fetch=True
+        )
         
-        result = c.fetchone()
         if not result:
             print("No reservation found")
-            conn.rollback()
+            execute_with_retry(conn, '''DELETE FROM responses 
+                         WHERE username = ? AND image_id = ? AND answer = 'RESERVED' ''', 
+                      (session['username'], image_id))
+            
+            conn.commit()
             conn.close()
             session.pop('reserved_image_id', None)
+            print("Reservation expired")
             return redirect(url_for('compare'))
             
-        timestamp_str = result[0]
+        timestamp_str = result[0][0]
         try:
             reservation_time = datetime.strptime(timestamp_str, '%Y-%m-%d %H:%M:%S')
         except ValueError:
@@ -749,7 +841,7 @@ def submit():
         
         if current_time > expiration_time:
             # Reservation expired - clean it up and redirect
-            c.execute('''DELETE FROM responses 
+            execute_with_retry(conn, '''DELETE FROM responses 
                          WHERE username = ? AND image_id = ? AND answer = 'RESERVED' ''', 
                       (session['username'], image_id))
             
@@ -760,18 +852,18 @@ def submit():
             return redirect(url_for('compare'))
         
         # Delete the reservation
-        c.execute('''DELETE FROM responses 
+        execute_with_retry(conn, '''DELETE FROM responses 
                      WHERE username = ? AND image_id = ? AND answer = 'RESERVED' ''', 
                   (session['username'], image_id))
         
         # Insert the actual answer with current timestamp
         current_timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        c.execute('''INSERT INTO responses (username, image_id, answer, timestamp)
+        execute_with_retry(conn, '''INSERT INTO responses (username, image_id, answer, timestamp)
                      VALUES (?, ?, ?, ?)''', 
                   (session['username'], image_id, answer, current_timestamp))
         
         # Update the image's answered count
-        c.execute('''UPDATE images 
+        execute_with_retry(conn, '''UPDATE images 
                      SET answered_count = answered_count + 1
                      WHERE id = ?''', (image_id,))
         
@@ -782,7 +874,7 @@ def submit():
             session.pop('score_multiplier')  # Remove multiplier after use
         
         # Update user's score
-        c.execute('''INSERT INTO user_scores (username, score, last_updated)
+        execute_with_retry(conn, '''INSERT INTO user_scores (username, score, last_updated)
                      VALUES (?, ?, ?)
                      ON CONFLICT(username) DO UPDATE SET 
                      score = score + ?,
@@ -792,17 +884,25 @@ def submit():
         print(f"Successfully recorded answer: {answer} for image {image_id}")
         
         # Verify the insertion
-        c.execute('''SELECT * FROM responses 
+        result = execute_with_retry(
+            conn,
+            '''SELECT * FROM responses 
                      WHERE username = ? AND image_id = ? AND answer = ?''',
-                  (session['username'], image_id, answer))
-        verification = c.fetchone()
+            (session['username'], image_id, answer),
+            fetch=True
+        )
+        verification = result[0] if result else None
         print(f"Verification of saved response: {verification}")
         
         # Get updated score
-        c.execute('SELECT score FROM user_scores WHERE username = ?', (session['username'],))
-        score_result = c.fetchone()
-        if score_result:
-            session['user_score'] = score_result[0]
+        result = execute_with_retry(
+            conn,
+            'SELECT score FROM user_scores WHERE username = ?',
+            (session['username'],),
+            fetch=True
+        )
+        if result:
+            session['user_score'] = result[0][0]
         
         conn.commit()
         

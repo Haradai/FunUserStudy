@@ -2,30 +2,17 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <title>Image Comparison - Mobile</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/hammer.js/2.0.8/hammer.min.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
-        /* Force landscape */
-        @media screen and (orientation: portrait) {
-            html {
-                transform: rotate(-90deg);
-                transform-origin: left top;
-                width: 100vh;
-                height: 100vw;
-                position: absolute;
-                top: 100%;
-                left: 0;
-            }
-        }
-
         html, body {
             height: 100vh;
             width: 100vw;
             overflow: hidden;
             position: fixed;
-            touch-action: none;
+            touch-action: manipulation;
         }
 
         .mobile-container {
@@ -81,20 +68,18 @@
             flex: 1;
             display: flex;
             flex-direction: column;
-            min-height: 0;
-            position: relative;
             overflow: hidden;
+            height: auto; /* remove height: 100% */
         }
 
-        .mobile-images {
+      .mobile-images {
             flex: 1;
             display: flex;
             flex-direction: row;
             gap: 0.5rem;
             padding: 0.5rem;
-            min-height: 0;
             overflow: hidden;
-            position: relative;
+            min-height: 0;
         }
 
         .mobile-image-wrapper {
@@ -102,19 +87,20 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            min-height: 0;
+            justify-content: center;
             overflow: hidden;
         }
 
         .mobile-image-wrapper img {
-            max-height: 100%;
             max-width: 100%;
-            object-fit: contain;
-            width: auto;
+            max-height: 100%;
             height: auto;
+            width: auto;
+            object-fit: contain;
         }
 
         .mobile-controls {
+            flex-shrink: 0;
             background: white;
             padding: 0.25rem;
             border-top: 1px solid #e5e7eb;
@@ -185,6 +171,7 @@
             text-overflow: ellipsis;
             max-width: 100%;
         }
+        
 
         /* Prevent text selection */
         .mobile-user-card,
@@ -292,12 +279,12 @@
                 <div class="mobile-images">
                     <div class="mobile-image-wrapper">
                         <div class="flex justify-center items-center flex-grow">
-                            <img src="/{{ gt_path }}" alt="Ground Truth image" class="rounded border border-gray-200">
+                            <img src="/{{ gt_path }}" class="max-w-full max-h-full object-contain rounded border border-gray-200">
                         </div>
                     </div>
                     <div class="mobile-image-wrapper">
                         <div class="flex justify-center items-center flex-grow">
-                            <img src="/{{ sr_path }}" alt="Synthesized image" class="rounded border border-gray-200">
+                            <img src="/{{ sr_path }}" class="max-w-full max-h-full object-contain rounded border border-gray-200">
                         </div>
                     </div>
                     <div class="mobile-swipe-overlay">
