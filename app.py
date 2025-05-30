@@ -237,7 +237,8 @@ def index():
         c.execute('SELECT email FROM users WHERE email = ?', (email,))
         existing_email = c.fetchone()
         
-        if existing_user:
+        
+        if existing_user and not existing_email:
             return render_template('index.html', 
                                      error="Username already taken",
                                      total_responses=total_responses,
@@ -247,7 +248,7 @@ def index():
                                      prices=prices)
         
 
-        elif existing_email:
+        elif existing_email and not existing_user:
             return render_template('index.html', 
                                      error="Email already used!",
                                      total_responses=total_responses,
@@ -256,8 +257,27 @@ def index():
                                      top_users=top_users,
                                      prices=prices)
         
-        else:
-            # Create new user
+        elif existing_user and existing_email:
+            # Check if the username and email match in the database
+            c.execute('SELECT * FROM users WHERE username = ? AND email = ?', (username, email))
+            user_match = c.fetchone()
+            
+            if user_match:
+                # Login successful
+                session['username'] = username
+                conn.close()
+                return redirect(url_for('compare'))
+            
+            else:
+                # Login failed
+                return render_template('index.html', 
+                                     error="Username and email do not match",
+                                     total_responses=total_responses,
+                                     total_possible_responses=total_possible_responses,
+                                     completion_percent=completion_percent,
+                                     top_users=top_users,
+                                     prices=prices)
+        else:# Create new user
             try:
                 c.execute('INSERT INTO users (username, email) VALUES (?, ?)', (username, email))
                 conn.commit()
