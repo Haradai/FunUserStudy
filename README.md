@@ -2,22 +2,29 @@
 Say no more to "yes I can help you" and getting 5 images annotated per friend! 🎯 Give them a ranking to compete 🏆, a roulette to play with their points 🎲 and prizes! 🎁
 
 This project has been born from the necessity of having to annotate many images from my final thesis project. 📚
-It has been 99% LLM code generated so beware when using it. 🤖 
+It has been 90% LLM code generated so beware when using it. 🤖 
 I have tested it extensivelly but there might be bugs 🐛 and security flaws 🔒. Use at your own risk! ⚠️
 
 # How to use it :)
 
-A web application for conducting image comparison studies, built with Flask and Tailwind CSS. The application allows users to compare pairs of images and indicate whether there are semantic differences between them.
+A web application for conducting image comparison studies, built with Flask. The application allows users to compare pairs of images and indicate whether there are semantic differences between them.
 
-## Features
+Note! If you are the person and want to do the experiment without compeating with other users in the rankin use a username named "pepe". It is hardcoded hidden from the rankings.
 
-- User authentication system
-- Mobile-responsive design with touch controls
-- Real-time leaderboard
-- Progress tracking
-- Gamification elements (point system and roulette)
-- Admin dashboard for monitoring study progress
-- CSV export functionality
+# Home screen
+Here are some screenshots of the home screen:
+
+<p align="center">
+    <img src="readme_imgs/home_screen.png" alt="Home screen desktop" width="600"/>
+</p>
+
+<p align="center">
+    <img src="readme_imgs/Compare_screen.png" alt="Home screen mobile" width="600"/>
+</p>
+
+<p align="center">
+    <img src="readme_imgs/dashboard.png" alt="Home screen mobile" width="600"/>
+</p>
 
 ## Requirements
 
@@ -25,8 +32,6 @@ A web application for conducting image comparison studies, built with Flask and 
 - Flask
 - SQLite3
 - PyYAML
-- Tailwind CSS (via CDN)
-- Hammer.js (via CDN)
 
 ## Installation
 
