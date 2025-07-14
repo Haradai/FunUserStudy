@@ -220,12 +220,25 @@
         {% endif %}
     </div>
     <script>
+        // Global variable to track if interactions are blocked
+        let interactionsBlocked = false;
+
         // Keyboard controls
         document.addEventListener('keydown', function(event) {
+            if (interactionsBlocked) return; // Block keyboard interactions during spin
+            
             if (event.key === 'ArrowLeft') {
                 document.getElementById('leftButton').click();
             } else if (event.key === 'ArrowRight') {
                 document.getElementById('rightButton').click();
+            }
+        });
+
+        // Block form submission during spin
+        document.getElementById('responseForm').addEventListener('submit', function(event) {
+            if (interactionsBlocked) {
+                event.preventDefault();
+                return false;
             }
         });
         
@@ -236,12 +249,29 @@
             const resultDiv = document.getElementById('spin-result');
             let isSpinning = false;
 
-            const prizes = [
-                { text: '+10 Points! 🎉', color: 'bg-green-500', points: 10 },
-                { text: 'x2 Points Next! ⚡', color: 'bg-yellow-500', multiplier: 2 },
-                { text: '-10 Points 😢', color: 'bg-red-500', points: -10 },
-                { text: '-1 Point 😴', color: 'bg-purple-500', points: -1 }
-            ];
+            // Function to create and show overlay
+            function showOverlay() {
+                interactionsBlocked = true; // Block all interactions
+                const overlay = document.createElement('div');
+                overlay.id = 'spin-overlay';
+                overlay.className = 'fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center';
+                overlay.innerHTML = `
+                    <div class="bg-white rounded-lg p-6 flex items-center gap-4">
+                        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+                        <span class="text-lg font-semibold">Spinning...</span>
+                    </div>
+                `;
+                document.body.appendChild(overlay);
+            }
+
+            // Function to hide overlay
+            function hideOverlay() {
+                interactionsBlocked = false; // Re-enable all interactions
+                const overlay = document.getElementById('spin-overlay');
+                if (overlay) {
+                    overlay.remove();
+                }
+            }
 
             spinButton.addEventListener('click', async function() {
                 if (isSpinning) return;
@@ -251,11 +281,13 @@
                 isSpinning = true;
                 spinButton.disabled = true;
                 resultDiv.textContent = '';
+                
+                // Show overlay to block interactions
+                showOverlay();
 
-                // Random number of full rotations (3-5) plus the prize position
+                // Random number of full rotations (3-5)
                 const rotations = 3 + Math.floor(Math.random() * 3);
-                const prizeIndex = Math.floor(Math.random() * prizes.length);
-                const totalDegrees = (rotations * 360) + (prizeIndex * 90);
+                const totalDegrees = rotations * 360;
 
                 // Animate the spin
                 roulette.style.transition = 'transform 3s cubic-bezier(0.2, 0.8, 0.2, 1)';
@@ -263,20 +295,10 @@
 
                 // Wait for animation to complete
                 setTimeout(async () => {
-                    const prize = prizes[prizeIndex];
-                    resultDiv.textContent = prize.text;
-                    resultDiv.className = `mt-2 text-sm font-semibold ${prize.color} text-white px-3 py-1 rounded-full`;
-
-                    // Send result to server
+                    // Send GET request to server
                     try {
                         const response = await fetch('/gamble', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                            },
-                            body: JSON.stringify({
-                                prize: prize
-                            })
+                            method: 'GET'
                         });
                         
                         const data = await response.json();
@@ -291,12 +313,35 @@
                             } else {
                                 console.error('Score element not found after server response');
                             }
+
+                            // Show the prize with +{prize} points format
+                            const prizeText = `+${data.prize} points`;
+                            resultDiv.textContent = prizeText;
+                            
+                            // Set color based on prize value
+                            let colorClass = '';
+                            if (data.prize > 0) {
+                                colorClass = 'bg-green-500';
+                            } else if (data.prize < 0) {
+                                colorClass = 'bg-red-500';
+                            } else {
+                                colorClass = 'bg-gray-500';
+                            }
+                            
+                            resultDiv.className = `text-sm font-semibold ${colorClass} text-white px-3 py-1 rounded-full`;
                         } else {
                             console.error('Server error:', data.error || 'Unknown error');
+                            resultDiv.textContent = 'Error occurred';
+                            resultDiv.className = 'text-sm font-semibold bg-red-500 text-white px-3 py-1 rounded-full';
                         }
                     } catch (error) {
                         console.error('Error during fetch:', error);
+                        resultDiv.textContent = 'Network error';
+                        resultDiv.className = 'text-sm font-semibold bg-red-500 text-white px-3 py-1 rounded-full';
                     }
+
+                    // Hide overlay after getting response
+                    hideOverlay();
 
                     // Reset after 2 seconds
                     setTimeout(() => {

@@ -717,20 +717,15 @@ def compare():
         print(f"Error in compare route: {e}")
         return redirect(url_for('compare'))
 
-@app.route('/gamble', methods=['POST'])
+@app.route('/gamble', methods=['GET'])
 def gamble():
     print("\n=== Gamble Route Accessed ===")
     if 'username' not in session:
         print("No username in session")
         return jsonify({'success': False, 'error': 'Not logged in'}), 401
     
-    data = request.get_json()
-    prize = data.get('prize')
-    print(f"Received prize data: {prize}")
-    
-    if not prize:
-        print("Invalid prize data")
-        return jsonify({'success': False, 'error': 'Invalid prize data'}), 400
+    prize = random.choice(config['points_gamble'])
+    print(f"Received prize: {prize}")
     
     conn = sqlite3.connect('database.db')
     c = conn.cursor()
@@ -758,21 +753,14 @@ def gamble():
         
         # Apply prize effect
         new_score = current_score
-        if 'points' in prize:
-            new_score += prize['points']
-            print(f"Adding {prize['points']} points. New score: {new_score}")
-        elif 'multiplier' in prize:
-            # Store multiplier in session for next response
-            session['score_multiplier'] = prize['multiplier']
-            print(f"Stored multiplier: {prize['multiplier']}")
-        
-        # Update score if it changed
-        if new_score != current_score:
-            execute_with_retry(conn, '''UPDATE user_scores 
-                         SET score = ?, last_updated = CURRENT_TIMESTAMP 
-                         WHERE username = ?''', 
-                      (new_score, session['username']))
-            print(f"Updated score in database to: {new_score}")
+        new_score += prize
+        print(f"Adding {prize} points. New score: {new_score}")
+    
+        execute_with_retry(conn, '''UPDATE user_scores 
+                        SET score = ?, last_updated = CURRENT_TIMESTAMP 
+                        WHERE username = ?''', 
+                    (new_score, session['username']))
+        print(f"Updated score in database to: {new_score}")
         
         # Update session score
         session['user_score'] = new_score
