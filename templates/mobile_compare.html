@@ -261,6 +261,16 @@
         .mobile-swipe-indicator.active {
             opacity: 1;
         }
+
+        /* Spin result display */
+        .mobile-spin-result {
+            font-size: 0.5rem;
+            text-align: center;
+            margin-top: 0.25rem;
+            padding: 0.125rem 0.25rem;
+            border-radius: 0.25rem;
+            min-height: 1rem;
+        }
     </style>
 </head>
 <body class="bg-gray-100">
@@ -361,6 +371,7 @@
                                 Spin!
                             {% endif %}
                         </button>
+                        <div id="spin-result" class="mobile-spin-result"></div>
                     </div>
                 {% endif %}
             </div>
@@ -383,6 +394,9 @@
     </div>
 
     <script>
+        // Global variable to track if interactions are blocked
+        let interactionsBlocked = false;
+
         // Fullscreen functionality
         function enterFullscreen() {
             const elem = document.documentElement;
@@ -514,10 +528,20 @@
         
         // Keyboard controls
         document.addEventListener('keydown', function(event) {
+            if (interactionsBlocked) return; // Block keyboard interactions during spin
+            
             if (event.key === 'ArrowLeft') {
                 document.getElementById('leftButton').click();
             } else if (event.key === 'ArrowRight') {
                 document.getElementById('rightButton').click();
+            }
+        });
+
+        // Block form submission during spin
+        document.getElementById('responseForm').addEventListener('submit', function(event) {
+            if (interactionsBlocked) {
+                event.preventDefault();
+                return false;
             }
         });
         
@@ -538,12 +562,13 @@
             let isSwiping = false;
             
             container.addEventListener('touchstart', function(e) {
+                if (interactionsBlocked) return; // Block touch interactions during spin
                 startX = e.touches[0].clientX;
                 isSwiping = true;
             });
             
             container.addEventListener('touchmove', function(e) {
-                if (!isSwiping) return;
+                if (!isSwiping || interactionsBlocked) return;
                 
                 const currentX = e.touches[0].clientX;
                 const diffX = currentX - startX;
@@ -570,41 +595,49 @@
             });
             
             hammer.on('swipeleft', function(e) {
+                if (interactionsBlocked) return; // Block swipe interactions during spin
                 document.getElementById('leftButton').click();
                 leftIndicator.classList.add('active');
                 setTimeout(() => leftIndicator.classList.remove('active'), 200);
             });
             
             hammer.on('swiperight', function(e) {
+                if (interactionsBlocked) return; // Block swipe interactions during spin
                 document.getElementById('rightButton').click();
                 rightIndicator.classList.add('active');
                 setTimeout(() => rightIndicator.classList.remove('active'), 200);
             });
         });
 
-        // Gambling functionality
+        // Gambling functionality - Updated to match desktop version
         document.addEventListener('DOMContentLoaded', function() {
             const spinButton = document.getElementById('spin-button');
             const roulette = document.getElementById('roulette');
+            const resultDiv = document.getElementById('spin-result');
             let isSpinning = false;
 
-            const prizes = [
-                { text: '+10 Points! 🎉', color: 'bg-green-500', points: 10 },
-                { text: 'x2 Points Next! ⚡', color: 'bg-yellow-500', multiplier: 2 },
-                { text: '-10 Points 😢', color: 'bg-red-500', points: -10 },
-                { text: '-1 Point 😴', color: 'bg-purple-500', points: -1 }
-            ];
+            // Function to create and show overlay
+            function showOverlay() {
+                interactionsBlocked = true; // Block all interactions
+                const overlay = document.createElement('div');
+                overlay.id = 'spin-overlay';
+                overlay.className = 'fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center';
+                overlay.innerHTML = `
+                    <div class="bg-white rounded-lg p-6 flex items-center gap-4">
+                        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+                        <span class="text-lg font-semibold">Spinning...</span>
+                    </div>
+                `;
+                document.body.appendChild(overlay);
+            }
 
-            function showPopup(title, message, color) {
-                const popup = document.getElementById('popup');
-                const popupTitle = document.getElementById('popup-title');
-                const popupMessage = document.getElementById('popup-message');
-                
-                popupTitle.textContent = title;
-                popupMessage.textContent = message;
-                popupTitle.className = `text-lg font-bold mb-2 ${color}`;
-                
-                popup.classList.remove('hidden');
+            // Function to hide overlay
+            function hideOverlay() {
+                interactionsBlocked = false; // Re-enable all interactions
+                const overlay = document.getElementById('spin-overlay');
+                if (overlay) {
+                    overlay.remove();
+                }
             }
 
             spinButton.addEventListener('click', async function() {
@@ -614,59 +647,81 @@
                 
                 isSpinning = true;
                 spinButton.disabled = true;
+                resultDiv.textContent = '';
+                
+                // Show overlay to block interactions
+                showOverlay();
 
+                // Random number of full rotations (3-5)
                 const rotations = 3 + Math.floor(Math.random() * 3);
-                const prizeIndex = Math.floor(Math.random() * prizes.length);
-                const totalDegrees = (rotations * 360) + (prizeIndex * 90);
+                const totalDegrees = rotations * 360;
 
+                // Animate the spin
                 roulette.style.transition = 'transform 3s cubic-bezier(0.2, 0.8, 0.2, 1)';
                 roulette.style.transform = `rotate(${totalDegrees}deg)`;
 
+                // Wait for animation to complete
                 setTimeout(async () => {
-                    const prize = prizes[prizeIndex];
-                    
+                    // Send GET request to server (same as desktop)
                     try {
                         const response = await fetch('/gamble', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                            },
-                            body: JSON.stringify({
-                                prize: prize
-                            })
+                            method: 'GET'
                         });
                         
                         const data = await response.json();
+                        console.log('Server response:', data);
                         
                         if (response.ok && data.success) {
+                            // Update score display with server value to ensure sync
                             const scoreElement = document.getElementById('user-score');
                             if (scoreElement) {
                                 scoreElement.textContent = data.new_score;
+                                console.log('Updated score from server:', data.new_score);
+                            } else {
+                                console.error('Score element not found after server response');
                             }
-                            // Show popup with prize result
-                            showPopup(
-                                prize.text,
-                                prize.multiplier ? 
-                                    `Your next response will be worth ${prize.multiplier}x points!` :
-                                    `Your score has been updated to ${data.new_score}`,
-                                prize.color
-                            );
+
+                            // Show the prize with +{prize} points format
+                            const prizeText = `+${data.prize}`;
+                            resultDiv.textContent = prizeText;
+                            
+                            // Set color based on prize value
+                            let colorClass = '';
+                            if (data.prize > 0) {
+                                colorClass = 'bg-green-500 text-white';
+                            } else if (data.prize < 0) {
+                                colorClass = 'bg-red-500 text-white';
+                            } else {
+                                colorClass = 'bg-gray-500 text-white';
+                            }
+                            
+                            resultDiv.className = `mobile-spin-result ${colorClass}`;
+                        } else {
+                            console.error('Server error:', data.error || 'Unknown error');
+                            resultDiv.textContent = 'Error';
+                            resultDiv.className = 'mobile-spin-result bg-red-500 text-white';
                         }
                     } catch (error) {
                         console.error('Error during fetch:', error);
-                        showPopup('Error', 'Failed to process spin result', 'text-red-500');
+                        resultDiv.textContent = 'Error';
+                        resultDiv.className = 'mobile-spin-result bg-red-500 text-white';
                     }
 
+                    // Hide overlay after getting response
+                    hideOverlay();
+
+                    // Reset after 2 seconds
                     setTimeout(() => {
                         roulette.style.transition = 'none';
                         roulette.style.transform = 'rotate(0deg)';
                         setTimeout(() => {
                             roulette.style.transition = 'transform 3s cubic-bezier(0.2, 0.8, 0.2, 1)';
                             isSpinning = false;
+                            // Keep button disabled and update text
                             spinButton.disabled = true;
                             spinButton.classList.add('opacity-50', 'cursor-not-allowed');
                             const remainingAnnotations = 10 - (annotationCount % 10);
-                            spinButton.textContent = `Available in ${remainingAnnotations} annotations`;
+                            spinButton.textContent = `${remainingAnnotations} more`;
                         }, 50);
                     }, 2000);
                 }, 3000);
