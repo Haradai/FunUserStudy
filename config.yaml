@@ -7,9 +7,28 @@ study:
   comparison_question: "Is there a semantic change between the two images?"
 
 prices:
-  - 👨‍🍳👨‍🍳 Et faig un pastis de formatge amb lotus 🍰🍰 I will make a lotus cheesecake for you 🍰🍰
-  - 🍺🍺 Et regalo les meves 3 cerveses preferides 🍺🍺 I will give you my 3 favorite beers 🍺🍺
-  - 👨‍🍳👨‍🍳 Et cuino el millor sandwich que pots dinar a la uni 🍔🍔 I will make the best sandwich you can eat at uni 🍔🍔
+  - gpu poor cap (gerard not included)
+  - gpu poor cap (gerard not included)
+  - carry bag with screen cleaning set 
+  - sticker pack 1
+  - sticker pack 2
+  - sticker pack 3
+  - tensor flow sticker (shiny)
+  - over fit happens sticker 
+  - you* model are unstable sticker
+  - all pixels matter sticker
+
+prices_img_paths: 
+  - cap.png
+  - cap.png
+  - bag.png
+  - sticker_pack1.png
+  - sticker_pack2.png
+  - sticker_pack3.png
+  - tensflowstick.png
+  - overfitstick.png
+  - catstick.png
+  - allpixmatstick.png
 
 points_gamble:
   - 10

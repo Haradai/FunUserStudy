@@ -9,7 +9,7 @@ def get_image_id(filename):
 def main():
     # Define paths
     sr_dir = Path('static/SR')
-    hq_dir = Path('static/HQ')
+    hq_dir = Path('static/GT')
     
     # Create a mapping of HQ images by their ID
     hq_images = {}

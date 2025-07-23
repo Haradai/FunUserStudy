@@ -181,6 +181,10 @@ def serve_icon(filename):
 def serve_static(filename):
     return send_from_directory('static', filename)
 
+@app.route('/prize_image/<filename>')
+def serve_prize_image(filename):
+    return send_from_directory('prize_image', filename)
+
 @app.route('/', methods=['GET', 'POST'])
 def index():
     # Get database connection
@@ -218,12 +222,13 @@ def index():
         
         if not username or not email:
             return render_template('index.html', 
-                                 error="Please provide both username and email",
-                                 total_responses=total_responses,
-                                 total_possible_responses=total_possible_responses,
-                                 completion_percent=completion_percent,
-                                 top_users=top_users,
-                                 prices=prices)
+                                error="Please provide both username and email",
+                                total_responses=total_responses,
+                                total_possible_responses=total_possible_responses,
+                                completion_percent=completion_percent,
+                                top_users=top_users,
+                                prices=prices,
+                                prices_img_paths=config["prices_img_paths"])  # Add this line
         
         conn = sqlite3.connect('database.db')
         conn.row_factory = sqlite3.Row
@@ -245,7 +250,8 @@ def index():
                                      total_possible_responses=total_possible_responses,
                                      completion_percent=completion_percent,
                                      top_users=top_users,
-                                     prices=prices)
+                                     prices=prices,
+                                     prices_img_paths=config["prices_img_paths"])
         
 
         elif existing_email and not existing_user:
@@ -255,7 +261,8 @@ def index():
                                      total_possible_responses=total_possible_responses,
                                      completion_percent=completion_percent,
                                      top_users=top_users,
-                                     prices=prices)
+                                     prices=prices,
+                                     prices_img_paths=config["prices_img_paths"])
         
         elif existing_user and existing_email:
             # Check if the username and email match in the database
@@ -276,7 +283,8 @@ def index():
                                      total_possible_responses=total_possible_responses,
                                      completion_percent=completion_percent,
                                      top_users=top_users,
-                                     prices=prices)
+                                     prices=prices,
+                                     prices_img_paths=config["prices_img_paths"])
         else:# Create new user
             try:
                 c.execute('INSERT INTO users (username, email) VALUES (?, ?)', (username, email))
@@ -288,7 +296,8 @@ def index():
                                      total_possible_responses=total_possible_responses,
                                      completion_percent=completion_percent,
                                      top_users=top_users,
-                                     prices=prices)
+                                     prices=prices,
+                                     prices_img_paths=config["prices_img_paths"])
         
         # Set session
         session['username'] = username
@@ -305,14 +314,16 @@ def index():
                              total_possible_responses=total_possible_responses,
                              completion_percent=completion_percent,
                              top_users=top_users,
-                             prices=prices)
+                             prices=prices,
+                             prices_img_paths=config["prices_img_paths"])
     
     return render_template('index.html',
                          total_responses=total_responses,
                          total_possible_responses=total_possible_responses,
                          completion_percent=completion_percent,
                          top_users=top_users,
-                         prices=prices)
+                         prices=prices,
+                         prices_img_paths=config["prices_img_paths"])
 
 @app.route('/logout')
 def logout():

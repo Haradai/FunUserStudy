@@ -178,8 +178,9 @@
                                         </div>
                                     </div>
                                     <div class="mt-1 w-full bg-gray-200 rounded-full h-1.5">
+                                        {% set max_score = top_users[0][1] if top_users[0][1] > 0 else 1 %}
                                         <div class="h-1.5 rounded-full {% if loop.index == 1 %}bg-yellow-400{% elif loop.index == 2 %}bg-gray-400{% elif loop.index == 3 %}bg-orange-400{% else %}bg-blue-400{% endif %}" 
-                                             style="width: {{ (user[1] / top_users[0][1] * 100)|round }}%">
+                                             style="width: {{ (user[1] / max_score * 100)|round }}%">
                                         </div>
                                     </div>
                                 </div>
@@ -242,12 +243,51 @@
             }
         });
         
+        // Cookie utility functions
+        function setCookie(name, value, days) {
+            const expires = new Date();
+            expires.setTime(expires.getTime() + (days * 24 * 60 * 60 * 1000));
+            document.cookie = `${name}=${value};expires=${expires.toUTCString()};path=/`;
+        }
+
+        function getCookie(name) {
+            const nameEQ = name + "=";
+            const ca = document.cookie.split(';');
+            for(let i = 0; i < ca.length; i++) {
+                let c = ca[i];
+                while (c.charAt(0) == ' ') c = c.substring(1, c.length);
+                if (c.indexOf(nameEQ) == 0) return c.substring(nameEQ.length, c.length);
+            }
+            return null;
+        }
+
+        function deleteCookie(name) {
+            document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
+        }
+
         // Add gambling functionality
         document.addEventListener('DOMContentLoaded', function() {
             const spinButton = document.getElementById('spin-button');
             const roulette = document.getElementById('roulette');
             const resultDiv = document.getElementById('spin-result');
             let isSpinning = false;
+
+            // Get current annotation count
+            const annotationCount = parseInt(document.querySelector('.text-right .text-gray-600 .font-semibold').textContent.split('/')[0]);
+            
+            // Check if user has already spun at this level
+            const lastSpinLevel = getCookie('lastSpinLevel');
+            const currentLevel = Math.floor(annotationCount / 10) * 10;
+            
+            // If user has already spun at this level, keep button disabled
+            // This includes the case where they're exactly at a multiple of 10 but already spun
+            if (lastSpinLevel && parseInt(lastSpinLevel) >= currentLevel) {
+                spinButton.disabled = true;
+                spinButton.classList.add('opacity-50', 'cursor-not-allowed');
+                const nextMultiple = currentLevel + 10;
+                const remainingAnnotations = nextMultiple - annotationCount;
+                spinButton.textContent = `Available in ${remainingAnnotations} annotations`;
+            }
 
             // Function to create and show overlay
             function showOverlay() {
@@ -277,6 +317,10 @@
                 if (isSpinning) return;
                 const annotationCount = parseInt(document.querySelector('.text-right .text-gray-600 .font-semibold').textContent.split('/')[0]);
                 if (annotationCount % 10 !== 0) return;
+                
+                // Set cookie to remember this spin level
+                const currentLevel = Math.floor(annotationCount / 10) * 10;
+                setCookie('lastSpinLevel', currentLevel, 30); // Cookie expires in 30 days
                 
                 isSpinning = true;
                 spinButton.disabled = true;
@@ -353,8 +397,9 @@
                             // Keep button disabled and update text
                             spinButton.disabled = true;
                             spinButton.classList.add('opacity-50', 'cursor-not-allowed');
+                            // Calculate next multiple of 10 and remaining annotations needed
                             const nextMultiple = Math.ceil((annotationCount + 1) / 10) * 10;
-                            const remainingAnnotations = 10 - (annotationCount % 10);
+                            const remainingAnnotations = nextMultiple - annotationCount;
                             spinButton.textContent = `Available in ${remainingAnnotations} annotations`;
                         }, 50);
                     }, 2000);
