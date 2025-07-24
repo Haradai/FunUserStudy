@@ -2,7 +2,7 @@ dashboard:
   password: "admin123"
   
 study:
-  max_responses_per_pair: 15
+  max_responses_per_pair: 30
   reservation_timeout_minutes: 5
   comparison_question: "Is there a semantic change between the two images?"
 
@@ -10,10 +10,18 @@ prices:
   - homemade lotus cheesecake
   - gpu poor cap (gerard not included)
   - gpu poor cap (gerard not included)
+  - glass water bottle
   - carry bag with screen cleaning set 
+  - pencil case + wallet
+  - led yoyo
   - sticker pack 1
   - sticker pack 2
   - sticker pack 3
+  - sticker pack 4
+  - sticker pack 5
+  - sticker pack 6
+  - sticker pack 7
+  - sticker pack 8
   - tensor flow sticker (shiny)
   - over fit happens sticker 
   - you* model are unstable sticker
@@ -23,10 +31,18 @@ prices_img_paths:
   - cheesecake.png
   - cap.png
   - cap.png
+  - waterbottle.png
   - bag.png
+  - oppo_pencilcase_wallet.png
+  - yoyo.png
   - sticker_pack1.png
   - sticker_pack2.png
   - sticker_pack3.png
+  - sticker_pack4.png
+  - sticker_pack5.png
+  - sticker_pack6.png
+  - sticker_pack7.png
+  - sticker_pack8.png
   - tensflowstick.png
   - overfitstick.png
   - catstick.png
